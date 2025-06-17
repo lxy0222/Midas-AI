@@ -223,48 +223,70 @@ class ChatService:
         """判断是否应该使用测试用例编写团队"""
         message_lower = message.lower()
 
-        # 首先检查排除场景 - 如果是这些场景，绝对不使用测试团队
-        exclude_scenarios = [
-            "简历", "resume", "cv", "工作经历", "项目经验", "技能",
-            "分析", "总结", "评价", "建议", "优化", "改进", "评估",
-            "面试", "求职", "招聘", "职位", "岗位", "人才", "候选人",
-            "文档", "报告", "材料", "内容", "文件", "附件"
-        ]
-
-        # 如果包含排除关键词，直接返回False
-        if any(exclude in message_lower for exclude in exclude_scenarios):
-            return False
-
-        # 只有非常明确的测试用例设计请求才使用测试团队
-        explicit_test_design_patterns = [
+        # 首先检查是否包含测试相关的明确请求
+        test_design_patterns = [
             # 明确的测试用例设计请求
             "设计测试用例", "编写测试用例", "写测试用例", "制定测试用例",
             "创建测试用例", "生成测试用例", "测试用例设计", "测试用例编写",
+            "测试用例", "用例设计", "用例编写", "用例制定", "用例创建",
 
             # 明确的测试计划/方案设计
             "设计测试计划", "编写测试计划", "制定测试计划", "测试计划设计",
             "设计测试方案", "编写测试方案", "制定测试方案", "测试方案设计",
+            "测试计划", "测试方案", "测试策略",
+
+            # 测试相关的动作词
+            "测试", "用例", "test case", "test plan", "testing",
 
             # 英文版本
             "design test case", "write test case", "create test case",
             "test case design", "test plan design", "design test plan"
         ]
 
-        # 检查是否包含明确的测试设计请求
-        for pattern in explicit_test_design_patterns:
+        # 检查是否包含测试设计请求
+        for pattern in test_design_patterns:
             if pattern in message_lower:
-                return True
-
-        # 检查动词+测试的组合，但要求更严格
-        design_verbs = ["帮我设计", "请设计", "如何设计", "帮我写", "请写", "如何写", "帮我制定", "请制定"]
-        test_objects = ["测试用例", "测试计划", "测试方案", "test case", "test plan"]
-
-        for verb in design_verbs:
-            for obj in test_objects:
-                if verb in message_lower and obj in message_lower:
+                # 进一步检查是否真的是测试用例设计请求
+                if self._is_test_design_request(message_lower):
                     return True
 
         return False
+
+    def _is_test_design_request(self, message_lower: str) -> bool:
+        """更精确地判断是否是测试设计请求"""
+        # 排除明显不是测试设计的场景
+        exclude_scenarios = [
+            # 简历相关
+            "简历", "resume", "cv", "工作经历", "项目经验",
+            # 面试相关
+            "面试", "求职", "招聘", "职位", "岗位", "人才", "候选人",
+            # 纯文档分析（不涉及测试设计）
+            "分析这个文档", "总结这个文件", "评价这个材料", "这个文档说了什么",
+            "文档内容", "文件内容", "材料内容"
+        ]
+
+        # 如果包含明确的排除场景，返回False
+        for exclude in exclude_scenarios:
+            if exclude in message_lower:
+                return False
+
+        # 包含测试设计相关的动作词
+        design_actions = [
+            "设计", "编写", "写", "制定", "创建", "生成", "帮我", "请", "如何",
+            "design", "write", "create", "generate", "help", "how to"
+        ]
+
+        # 包含测试相关的对象
+        test_objects = [
+            "测试用例", "测试计划", "测试方案", "用例", "测试",
+            "test case", "test plan", "testing", "test"
+        ]
+
+        # 检查是否同时包含动作词和测试对象
+        has_action = any(action in message_lower for action in design_actions)
+        has_test_object = any(obj in message_lower for obj in test_objects)
+
+        return has_action and has_test_object
 
     async def chat_stream(self, message: str, session_id: str = "default") -> AsyncGenerator[str, None]:
         """流式聊天"""

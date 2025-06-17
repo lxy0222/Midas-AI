@@ -10,12 +10,14 @@ import {
   ExperimentOutlined,
   ThunderboltOutlined,
   PaperClipOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  HistoryOutlined
 } from '@ant-design/icons'
 import { motion, AnimatePresence } from 'framer-motion'
 import MessageRenderer from '../components/MessageRenderer'
 import AgentTimeline from '../components/AgentTimeline'
 import FileUpload from '../components/FileUpload'
+import ChatHistory, { saveChatSession } from '../components/ChatHistory'
 import './ChatPage.css'
 
 const { Title, Text } = Typography
@@ -26,12 +28,14 @@ function ChatPageSimple() {
   const [messages, setMessages] = useState([])
   const [inputValue, setInputValue] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
-  const [sessionId] = useState(() => `session_${Date.now()}`)
+  const [sessionId, setSessionId] = useState(() => `session_${Date.now()}`)
   const [currentAgents, setCurrentAgents] = useState([])
   const [currentAgent, setCurrentAgent] = useState(null)
   const [useDemo, setUseDemo] = useState(false) // 是否使用演示模式
   const [selectedFile, setSelectedFile] = useState(null) // 选中的文件
   const [showFileUpload, setShowFileUpload] = useState(false) // 是否显示文件上传
+  const [showHistory, setShowHistory] = useState(false) // 是否显示对话历史
+  const [chatTitle, setChatTitle] = useState('') // 当前对话标题
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -43,6 +47,14 @@ function ChatPageSimple() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // 自动保存对话
+  useEffect(() => {
+    if (messages.length > 0) {
+      const title = chatTitle || `对话 ${new Date().toLocaleString()}`
+      saveChatSession(sessionId, title, messages)
+    }
+  }, [messages, sessionId, chatTitle])
 
   // 发送消息
   const sendMessage = async () => {
@@ -252,12 +264,16 @@ function ChatPageSimple() {
       await fetch(`/api/chat/session/${sessionId}`, {
         method: 'DELETE'
       })
+      // 创建新的会话ID
+      const newSessionId = `session_${Date.now()}`
+      setSessionId(newSessionId)
       setMessages([])
       setCurrentAgents([])
       setCurrentAgent(null)
       setSelectedFile(null)
       setShowFileUpload(false)
-      message.success('对话已清除')
+      setChatTitle('')
+      message.success('新对话已开始')
     } catch (error) {
       console.error('清除对话失败:', error)
       message.error('清除对话失败')
@@ -289,11 +305,30 @@ function ChatPageSimple() {
     }
   }
 
+  // 选择历史对话
+  const handleSessionSelect = (session) => {
+    setSessionId(session.id)
+    setMessages(session.messages || [])
+    setChatTitle(session.title)
+    setCurrentAgents([])
+    setCurrentAgent(null)
+    setSelectedFile(null)
+    setShowFileUpload(false)
+    message.success(`已切换到对话: ${session.title}`)
+  }
+
+  // 切换对话历史显示
+  const toggleHistory = () => {
+    setShowHistory(!showHistory)
+  }
+
   return (
     <div className="chat-page">
       <div className="chat-header">
         <div className="header-left">
-          <Title level={4} className="chat-title">智能对话</Title>
+          <Title level={4} className="chat-title">
+            {chatTitle || '智能对话'}
+          </Title>
         </div>
         <div className="header-right">
           <Space>
@@ -317,6 +352,14 @@ function ChatPageSimple() {
               className="header-btn"
             >
               新对话
+            </Button>
+            <Button
+              type="text"
+              icon={<HistoryOutlined />}
+              onClick={toggleHistory}
+              className="header-btn"
+            >
+              历史
             </Button>
             <Button type="text" icon={<ShareAltOutlined />} className="header-btn" />
             <Button type="text" icon={<MoreOutlined />} className="header-btn" />
@@ -491,6 +534,14 @@ function ChatPageSimple() {
           </div>
         </div>
       </div>
+
+      {/* 对话历史抽屉 */}
+      <ChatHistory
+        visible={showHistory}
+        onClose={() => setShowHistory(false)}
+        currentSessionId={sessionId}
+        onSessionSelect={handleSessionSelect}
+      />
     </div>
   )
 }

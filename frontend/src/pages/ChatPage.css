@@ -1,8 +1,9 @@
 .chat-page {
-  height: 100vh;
+  height: calc(100vh - 64px); /* 减去Layout header的高度 */
   display: flex;
   flex-direction: column;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  margin-top: 0; /* 确保没有额外的顶部边距 */
 }
 
 .chat-header {
@@ -10,10 +11,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .chat-title {
