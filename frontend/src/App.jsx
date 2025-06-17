@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage'
 import ChatPage from './pages/ChatPageSimple'
 import ComingSoon from './pages/ComingSoon'
 import AgentDemo from './pages/AgentDemo'
+import UserProxyDemo from './components/UserProxyDemo'
 import './App.css'
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           <Route path="/" element={<AppLayout />}>
             <Route path="ai/chat" element={<ChatPage />} />
             <Route path="ai/demo" element={<AgentDemo />} />
+            <Route path="ai/user-proxy-demo" element={<UserProxyDemo />} />
             <Route path="ai/assistant" element={<ComingSoon title="智能助手" subtitle="智能助手功能正在开发中，敬请期待！" />} />
             <Route path="ai/analysis" element={<ComingSoon title="文本分析" subtitle="文本分析功能正在开发中，敬请期待！" />} />
             <Route path="tools/converter" element={<ComingSoon title="格式转换" subtitle="格式转换工具正在开发中，敬请期待！" />} />

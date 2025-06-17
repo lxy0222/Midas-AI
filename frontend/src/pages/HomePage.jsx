@@ -1,14 +1,15 @@
 import React from 'react'
 import { Card, Row, Col, Typography, Button, Space } from 'antd'
-import { 
-  RobotOutlined, 
-  MessageOutlined, 
-  BulbOutlined, 
+import {
+  RobotOutlined,
+  MessageOutlined,
+  BulbOutlined,
   RocketOutlined,
   ArrowRightOutlined,
   StarOutlined,
   ThunderboltOutlined,
-  SafetyOutlined
+  SafetyOutlined,
+  UserOutlined
 } from '@ant-design/icons'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
@@ -109,12 +110,13 @@ const HomePage = () => {
               <ArrowRightOutlined />
             </Button>
             
-            <Button 
-              size="large" 
-              icon={<StarOutlined />}
+            <Button
+              size="large"
+              icon={<UserOutlined />}
+              onClick={() => navigate('/ai/user-proxy-demo')}
               className="secondary-btn"
             >
-              了解更多
+              用户代理演示
             </Button>
           </Space>
         </div>

@@ -18,6 +18,7 @@ import MessageRenderer from '../components/MessageRenderer'
 import AgentTimeline from '../components/AgentTimeline'
 import FileUpload from '../components/FileUpload'
 import ChatHistory, { saveChatSession } from '../components/ChatHistory'
+import UserProxyModal from '../components/UserProxyModal'
 import './ChatPage.css'
 
 const { Title, Text } = Typography
@@ -36,6 +37,13 @@ function ChatPageSimple() {
   const [showFileUpload, setShowFileUpload] = useState(false) // 是否显示文件上传
   const [showHistory, setShowHistory] = useState(false) // 是否显示对话历史
   const [chatTitle, setChatTitle] = useState('') // 当前对话标题
+  const [userProxyModal, setUserProxyModal] = useState({
+    visible: false,
+    agentContent: '',
+    agentName: '',
+    isWaiting: false,
+    pendingResponse: null
+  })
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -153,34 +161,54 @@ function ChatPageSimple() {
                 console.log('Received data:', data)
                 
                 if (data.type === 'agent_start') {
+                  // 为每个智能体启动创建一个唯一的实例ID
+                  const timestamp = Date.now()
+                  const uniqueId = `${data.agent}_${timestamp}`
+
                   const newAgent = {
-                    id: data.agent,
+                    id: uniqueId,
+                    originalId: data.agent, // 保存原始智能体ID
                     agent_info: data.agent_info,
                     content: '',
                     status: 'working',
-                    startTime: new Date().toISOString()
+                    startTime: new Date().toISOString(),
+                    order: agentsMap.size // 用于排序
                   }
-                  
-                  agentsMap.set(data.agent, newAgent)
-                  setCurrentAgent(data.agent)
+
+                  agentsMap.set(uniqueId, newAgent)
+                  setCurrentAgent(uniqueId)
                   setCurrentAgents(Array.from(agentsMap.values()))
                   
                 } else if (data.type === 'chunk' && data.content) {
                   // 处理智能体内容
-                  if (data.agent && agentsMap.has(data.agent)) {
-                    const agent = agentsMap.get(data.agent)
-                    agent.content += data.content
-                    agentsMap.set(data.agent, agent)
-                    setCurrentAgents(Array.from(agentsMap.values()))
+                  if (data.agent) {
+                    // 查找当前正在工作的智能体实例
+                    let targetAgent = null
+                    let targetAgentId = null
 
-                    setMessages(prev => prev.map(msg =>
-                      msg.id === assistantMessage.id
-                        ? {
-                            ...msg,
-                            agents: Array.from(agentsMap.values())
-                          }
-                        : msg
-                    ))
+                    // 查找具有相同originalId且状态为working的智能体
+                    for (const [id, agent] of agentsMap.entries()) {
+                      if (agent.originalId === data.agent && agent.status === 'working') {
+                        targetAgent = agent
+                        targetAgentId = id
+                        break
+                      }
+                    }
+
+                    if (targetAgent && targetAgentId) {
+                      targetAgent.content += data.content
+                      agentsMap.set(targetAgentId, targetAgent)
+                      setCurrentAgents(Array.from(agentsMap.values()))
+
+                      setMessages(prev => prev.map(msg =>
+                        msg.id === assistantMessage.id
+                          ? {
+                              ...msg,
+                              agents: Array.from(agentsMap.values())
+                            }
+                          : msg
+                      ))
+                    }
                   } else {
                     // 处理普通文本内容（没有智能体信息时）
                     setMessages(prev => prev.map(msg =>
@@ -194,14 +222,63 @@ function ChatPageSimple() {
                   }
                   
                 } else if (data.type === 'agent_end') {
-                  if (agentsMap.has(data.agent)) {
-                    const agent = agentsMap.get(data.agent)
-                    agent.status = 'completed'
-                    agent.endTime = new Date().toISOString()
-                    agentsMap.set(data.agent, agent)
-                    setCurrentAgents(Array.from(agentsMap.values()))
+                  // 查找要结束的智能体实例
+                  for (const [id, agent] of agentsMap.entries()) {
+                    if (agent.originalId === data.agent && agent.status === 'working') {
+                      agent.status = 'completed'
+                      agent.endTime = new Date().toISOString()
+                      agentsMap.set(id, agent)
+                      setCurrentAgents(Array.from(agentsMap.values()))
+                      break
+                    }
                   }
                   
+                } else if (data.type === 'user_proxy') {
+                  // 用户代理需要审批
+                  console.log('User proxy approval needed:', data)
+
+                  // 为用户代理创建唯一实例
+                  const timestamp = Date.now()
+                  const userProxyId = `user_proxy_${timestamp}`
+
+                  const userProxyAgent = {
+                    id: userProxyId,
+                    originalId: 'user_proxy',
+                    agent_info: {
+                      name: 'User Proxy Agent',
+                      description: '等待用户审批',
+                      avatar: '👤',
+                      color: '#ff7875'
+                    },
+                    content: data.content || '等待用户审批...',
+                    status: 'waiting',
+                    startTime: new Date().toISOString(),
+                    order: agentsMap.size
+                  }
+
+                  agentsMap.set(userProxyId, userProxyAgent)
+                  setCurrentAgent(userProxyId)
+                  setCurrentAgents(Array.from(agentsMap.values()))
+
+                  // 更新消息显示
+                  setMessages(prev => prev.map(msg =>
+                    msg.id === assistantMessage.id
+                      ? {
+                          ...msg,
+                          agents: Array.from(agentsMap.values())
+                        }
+                      : msg
+                  ))
+
+                  setUserProxyModal({
+                    visible: true,
+                    agentContent: data.content || '',
+                    agentName: data.agent || 'User Proxy Agent',
+                    isWaiting: true,
+                    pendingResponse: { userProxyId } // 传递user proxy ID
+                  })
+                  // 不要return，让流处理继续
+
                 } else if (data.type === 'complete') {
                   console.log('All agents completed:', data.message)
 
@@ -256,6 +333,95 @@ function ChatPageSimple() {
       setSelectedFile(null)
       setShowFileUpload(false)
     }
+  }
+
+  // 处理用户审批
+  const handleUserApproval = async (userInput) => {
+    try {
+      // 发送用户反馈到后端的feedback队列
+      const feedbackResponse = await fetch('http://localhost:8000/chat/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: userInput
+        })
+      })
+
+      if (!feedbackResponse.ok) {
+        throw new Error('发送用户反馈失败')
+      }
+
+      // 更新user_proxy智能体状态
+      const { userProxyId } = userProxyModal.pendingResponse || {}
+      if (userProxyId) {
+        setCurrentAgents(prev => prev.map(agent =>
+          agent.id === userProxyId
+            ? {
+                ...agent,
+                content: `用户反馈: ${userInput}`,
+                status: 'completed',
+                endTime: new Date().toISOString()
+              }
+            : agent
+        ))
+
+        // 更新消息中的智能体状态
+        setMessages(prev => prev.map(msg =>
+          msg.type === 'assistant' && msg.streaming
+            ? {
+                ...msg,
+                agents: prev.find(m => m.id === msg.id)?.agents?.map(agent =>
+                  agent.id === userProxyId
+                    ? {
+                        ...agent,
+                        content: `用户反馈: ${userInput}`,
+                        status: 'completed',
+                        endTime: new Date().toISOString()
+                      }
+                    : agent
+                ) || []
+              }
+            : msg
+        ))
+      }
+
+      // 关闭模态框
+      setUserProxyModal({
+        visible: false,
+        agentContent: '',
+        agentName: '',
+        isWaiting: false,
+        pendingResponse: null
+      })
+
+      console.log('用户反馈已发送，流处理将自动继续...')
+
+    } catch (error) {
+      console.error('处理用户审批失败:', error)
+      message.error('处理审批失败，请重试')
+    }
+  }
+
+
+
+  // 处理审批拒绝
+  const handleUserRejection = async (userInput) => {
+    await handleUserApproval(userInput) // 使用相同的处理逻辑，后端会根据内容判断
+  }
+
+  // 关闭审批模态框
+  const handleCloseUserProxyModal = () => {
+    setUserProxyModal({
+      visible: false,
+      agentContent: '',
+      agentName: '',
+      isWaiting: false,
+      pendingResponse: null
+    })
+    setIsStreaming(false)
+    setCurrentAgent(null)
   }
 
   // 清除对话
@@ -552,6 +718,17 @@ function ChatPageSimple() {
         onClose={() => setShowHistory(false)}
         currentSessionId={sessionId}
         onSessionSelect={handleSessionSelect}
+      />
+
+      {/* 用户代理审批模态框 */}
+      <UserProxyModal
+        visible={userProxyModal.visible}
+        onApprove={handleUserApproval}
+        onReject={handleUserRejection}
+        onClose={handleCloseUserProxyModal}
+        agentContent={userProxyModal.agentContent}
+        agentName={userProxyModal.agentName}
+        isWaiting={userProxyModal.isWaiting}
       />
     </div>
   )

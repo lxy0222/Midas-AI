@@ -2,11 +2,12 @@ import asyncio
 import os
 import sys
 import json
-from typing import AsyncGenerator, Dict, List
-from autogen_agentchat.agents import AssistantAgent
-from autogen_agentchat.conditions import SourceMatchTermination
-from autogen_agentchat.messages import ModelClientStreamingChunkEvent, TextMessage
+from typing import AsyncGenerator, Dict, List, Any
+from autogen_agentchat.agents import AssistantAgent, UserProxyAgent
+from autogen_agentchat.conditions import SourceMatchTermination, TextMentionTermination
+from autogen_agentchat.messages import ModelClientStreamingChunkEvent, TextMessage, UserInputRequestedEvent
 from autogen_agentchat.teams import RoundRobinGroupChat
+from autogen_core import CancellationToken
 from autogen_core.models import ModelFamily
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from dotenv import load_dotenv
@@ -18,6 +19,7 @@ class ChatService:
     def __init__(self):
         self.sessions: Dict[str, AssistantAgent | RoundRobinGroupChat] = {}
         self.model_client = self._create_model_client()
+        self.feedback_queue = asyncio.Queue()
         # 智能体信息配置
         self.agent_info = {
             "primary": {
@@ -39,6 +41,21 @@ class ChatService:
                 "color": "#722ed1"
             }
         }
+
+    async def put_feedback(self, message: Dict[str, Any]):
+        await self.feedback_queue.put(message)
+
+    async def user_input_callback(self, prompt: str, cancellation_token: CancellationToken | None) -> str:
+        print(f"user_input_callback被调用: prompt={prompt}")
+
+        try:
+            print("等待用户反馈...")
+            feedback = await self.feedback_queue.get()
+            print(f"收到用户反馈: {feedback}")
+            return feedback.get("content", "APPROVE")
+        except Exception as e:
+            print(f"获取用户反馈失败: {str(e)}")
+            return "APPROVE"  # 默认批准
 
     def _create_team(self, session_id: str):
         if session_id not in self.sessions:
@@ -160,14 +177,18 @@ class ChatService:
                 """,
                 model_client_stream=True,
             )
+            user_proxy = UserProxyAgent(
+                name="user_proxy",
+                input_func=self.user_input_callback
+            )
 
             # Define a termination condition that stops the task if the critic approves.
-            source_match_termination = SourceMatchTermination(["critic"])
+            # source_match_termination = SourceMatchTermination(["critic"])
 
-            # text_termination = TextMentionTermination("APPROVE")
+            text_termination = TextMentionTermination("APPROVE")
 
             # Create a team with the primary and critic agents.
-            team = RoundRobinGroupChat([primary_agent, critic_agent], termination_condition=source_match_termination)
+            team = RoundRobinGroupChat([primary_agent, critic_agent, user_proxy], termination_condition=text_termination)
             self.sessions[session_id] = team
         return self.sessions[session_id]
 
@@ -351,7 +372,14 @@ class ChatService:
                                 "type": "chunk",
                                 "content": item.content
                             }) + "\n"
-
+                elif isinstance(item, UserInputRequestedEvent):
+                    print(f"收到UserInputRequestedEvent: {item.content}, source: {item.source}")
+                    yield json.dumps({
+                        "type": "user_proxy",
+                        "content": item.content,
+                        "agent": item.source,
+                        "message": "需要用户审批才能继续"
+                    }) + "\n"
                 elif isinstance(item, TextMessage):
                     if use_team:
                         # 团队模式：处理完整消息，检查智能体切换
@@ -486,3 +514,24 @@ class ChatService:
                 "type": "error",
                 "content": f"抱歉，处理您的请求时出现了错误：{str(e)}"
             }) + "\n"
+
+    async def handle_user_proxy_response(self, session_id: str, user_input: str, approved: bool = True):
+        """处理用户代理审批响应"""
+        try:
+            # 将用户输入存储到会话中，供user_input_callback使用
+            if not hasattr(self, 'user_responses'):
+                self.user_responses = {}
+
+            self.user_responses[session_id] = user_input
+
+            print(f"收到用户代理响应 - Session: {session_id}, Input: {user_input}, Approved: {approved}")
+
+            return {
+                "status": "success",
+                "user_input": user_input,
+                "approved": approved
+            }
+
+        except Exception as e:
+            print(f"处理用户代理响应失败: {str(e)}")
+            raise e

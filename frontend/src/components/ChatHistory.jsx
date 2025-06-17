@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import {
   Drawer,
   List,
@@ -25,7 +25,7 @@ import './ChatHistory.css'
 
 const { Title, Text } = Typography
 
-function ChatHistory({ visible, onClose, currentSessionId, onSessionSelect }) {
+const ChatHistory = forwardRef(function ChatHistory({ visible, onClose, currentSessionId, onSessionSelect }, ref) {
   const [chatSessions, setChatSessions] = useState([])
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -174,7 +174,7 @@ function ChatHistory({ visible, onClose, currentSessionId, onSessionSelect }) {
   }, [visible])
 
   // 暴露保存会话的方法给父组件
-  React.useImperativeHandle(React.forwardRef(() => null), () => ({
+  useImperativeHandle(ref, () => ({
     saveSession
   }))
 
@@ -304,7 +304,7 @@ function ChatHistory({ visible, onClose, currentSessionId, onSessionSelect }) {
       </div>
     </Drawer>
   )
-}
+})
 
 // 导出保存会话的工具函数
 export const saveChatSession = (sessionId, title, messages) => {

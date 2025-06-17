@@ -1,0 +1,240 @@
+/* 用户代理审批模态框样式 */
+.user-proxy-modal {
+  z-index: 1050;
+}
+
+.user-proxy-modal .ant-modal-content {
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.user-proxy-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.user-proxy-modal-title .modal-icon {
+  color: #3b82f6;
+  font-size: 18px;
+}
+
+.modal-content {
+  position: relative;
+  padding: 8px 0;
+}
+
+/* 等待提示 */
+.waiting-alert {
+  margin-bottom: 20px;
+  border-radius: 8px;
+}
+
+/* 智能体内容区域 */
+.agent-content-section {
+  margin-bottom: 24px;
+}
+
+.agent-content-section .ant-typography-title {
+  margin-bottom: 12px;
+  color: #374151;
+}
+
+.agent-name {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.agent-content {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.content-preview {
+  margin: 0;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #374151;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 用户输入区域 */
+.user-input-section {
+  margin-bottom: 24px;
+}
+
+.user-input-section .ant-typography-title {
+  margin-bottom: 8px;
+  color: #374151;
+}
+
+.input-hint {
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.approval-input {
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.approval-input:focus,
+.approval-input:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input-tips {
+  margin-top: 8px;
+  text-align: right;
+}
+
+.tip-text {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* 操作按钮 */
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.approve-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  border-radius: 8px;
+  height: 40px;
+  padding: 0 24px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+}
+
+.approve-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.reject-btn {
+  border-radius: 8px;
+  height: 40px;
+  padding: 0 24px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.reject-btn:hover {
+  transform: translateY(-1px);
+}
+
+.cancel-btn {
+  border-radius: 8px;
+  height: 40px;
+  padding: 0 24px;
+  color: #6b7280;
+  border-color: #d1d5db;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn:hover {
+  color: #374151;
+  border-color: #9ca3af;
+  transform: translateY(-1px);
+}
+
+/* 提交状态覆盖层 */
+.submitting-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.submitting-text {
+  margin-top: 16px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .user-proxy-modal {
+    margin: 0;
+    max-width: 100vw;
+  }
+  
+  .user-proxy-modal .ant-modal-content {
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .modal-actions .ant-space {
+    width: 100%;
+  }
+  
+  .modal-actions .ant-btn {
+    width: 100%;
+  }
+}
+
+/* 动画效果 */
+.user-proxy-modal .ant-modal-content {
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 滚动条样式 */
+.agent-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.agent-content::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.agent-content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.agent-content::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

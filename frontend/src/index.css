@@ -131,25 +131,7 @@ body {
   overflow: hidden;
 }
 
-.streaming-text::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 2px;
-  height: 100%;
-  background: #1a73e8;
-  animation: blink 1s infinite;
-}
 
-@keyframes blink {
-  0%, 50% {
-    opacity: 1;
-  }
-  51%, 100% {
-    opacity: 0;
-  }
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {

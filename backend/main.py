@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import asyncio
 import json
 from typing import AsyncGenerator, Optional
@@ -48,6 +49,22 @@ class FileUploadResponse(BaseModel):
     message: str
     file_info: Optional[dict] = None
     content: Optional[str] = None
+
+class MarkerConfigRequest(BaseModel):
+    enable_llm: bool = False
+    llm_service: Optional[str] = None
+    openai_base_url: Optional[str] = None
+    openai_model: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    use_marker: bool = True
+
+class UserProxyResponse(BaseModel):
+    session_id: str
+    user_input: str
+    approved: bool = True
+
+class UserFeedback(BaseModel):
+    content: str
 
 @app.get("/")
 async def root():
@@ -225,6 +242,109 @@ async def chat_file_analysis_stream(request: FileAnalysisRequest):
 
     return StreamingResponse(
         generate_response(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream",
+        }
+    )
+
+@app.post("/chat/feedback")
+async def handle_user_feedback(request: UserFeedback):
+    """接收用户反馈并放入队列"""
+    try:
+        await chat_service.put_feedback({"content": request.content})
+        return {
+            "success": True,
+            "message": "用户反馈已接收"
+        }
+    except Exception as e:
+        print(f"处理用户反馈失败: {str(e)}")
+        return {
+            "success": False,
+            "message": f"处理失败: {str(e)}"
+        }
+
+@app.post("/chat/user-proxy-response")
+async def handle_user_proxy_response(request: UserProxyResponse):
+    """处理用户代理审批响应"""
+    try:
+        # 将用户输入传递给聊天服务
+        result = await chat_service.handle_user_proxy_response(
+            request.session_id,
+            request.user_input,
+            request.approved
+        )
+
+        return {
+            "success": True,
+            "message": "用户审批已处理",
+            "result": result
+        }
+    except Exception as e:
+        print(f"处理用户代理响应失败: {str(e)}")
+        return {
+            "success": False,
+            "message": f"处理失败: {str(e)}"
+        }
+
+@app.post("/marker/config")
+async def configure_marker(request: MarkerConfigRequest):
+    """配置Marker文档处理服务"""
+    try:
+        # 启用或禁用Marker
+        if request.use_marker:
+            file_service.enable_marker()
+        else:
+            file_service.disable_marker()
+
+        # 配置LLM服务
+        if request.enable_llm and request.openai_api_key:
+            llm_config = {
+                "use_llm": True,
+                "llm_service": request.llm_service or "marker.services.openai.OpenAIService",
+                "openai_base_url": request.openai_base_url or "https://api.openai.com/v1",
+                "openai_model": request.openai_model or "gpt-4o-mini",
+                "openai_api_key": request.openai_api_key
+            }
+            file_service.enable_marker_llm(llm_config)
+
+        return {
+            "success": True,
+            "message": "Marker配置更新成功",
+            "config": {
+                "use_marker": request.use_marker,
+                "llm_enabled": request.enable_llm
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"配置失败: {str(e)}"
+        }
+
+@app.get("/marker/status")
+async def get_marker_status():
+    """获取Marker服务状态"""
+    return {
+        "marker_enabled": file_service.use_marker,
+        "supported_formats": file_service.get_supported_formats(),
+        "service_status": "active"
+    }
+
+@app.get("/test/user-proxy-event")
+async def test_user_proxy_event():
+    """测试用户代理事件"""
+    async def generate_test_event():
+        # 发送一些普通消息
+        yield f"data: {json.dumps({'type': 'chunk', 'content': '正在生成测试用例...'})}\n\n"
+
+        # 发送user_proxy事件
+        yield f"data: {json.dumps({'type': 'user_proxy', 'content': '这是测试生成的内容，请审批', 'agent': 'test_agent', 'message': '需要用户审批才能继续'})}\n\n"
+
+    return StreamingResponse(
+        generate_test_event(),
         media_type="text/plain",
         headers={
             "Cache-Control": "no-cache",
