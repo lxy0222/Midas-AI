@@ -257,7 +257,7 @@ function ChatPage() {
               >
                 <RobotOutlined className="welcome-icon" />
                 <Title level={4} className="gradient-text">
-                  欢迎使用但问智能
+                  欢迎使用Midas AI
                 </Title>
                 <Text className="welcome-text">
                   我是您的 AI 智能助手，有什么可以帮助您的吗？

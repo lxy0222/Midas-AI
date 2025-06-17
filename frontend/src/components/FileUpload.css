@@ -1,0 +1,249 @@
+.file-upload-container {
+  width: 100%;
+}
+
+.upload-dragger {
+  border: 2px dashed #d9d9d9 !important;
+  border-radius: 12px !important;
+  background: #fafafa !important;
+  transition: all 0.3s ease !important;
+  padding: 20px !important;
+}
+
+.upload-dragger:hover {
+  border-color: #1890ff !important;
+  background: #f0f8ff !important;
+}
+
+.upload-dragger.ant-upload-drag-hover {
+  border-color: #1890ff !important;
+  background: #f0f8ff !important;
+}
+
+.upload-content {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.upload-icon {
+  font-size: 48px;
+  color: #1890ff;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.upload-text {
+  margin-top: 8px;
+}
+
+.upload-text .ant-typography {
+  margin: 0 !important;
+}
+
+.file-card {
+  border: 1px solid #e8e8e8 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  transition: all 0.3s ease !important;
+  margin-bottom: 12px;
+}
+
+.file-card:hover {
+  border-color: #1890ff !important;
+  box-shadow: 0 4px 16px rgba(24, 144, 255, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+.file-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.file-icon-wrapper {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.file-icon {
+  font-size: 20px;
+}
+
+.file-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  margin-bottom: 4px;
+}
+
+.file-name .ant-typography {
+  margin: 0 !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+}
+
+.file-meta {
+  margin-bottom: 8px;
+}
+
+.file-size {
+  font-size: 12px !important;
+}
+
+.file-preview {
+  margin-top: 8px;
+}
+
+.preview-text {
+  margin: 0 !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  color: #8c8c8c !important;
+  background: #f8f8f8;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #1890ff;
+}
+
+.file-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.upload-progress {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.upload-progress .ant-progress {
+  margin-bottom: 8px;
+}
+
+.upload-progress .ant-typography {
+  margin: 0 !important;
+  font-size: 12px !important;
+}
+
+/* 拖拽状态样式 */
+.upload-dragger.ant-upload-drag-hover .upload-icon {
+  color: #1890ff;
+  transform: scale(1.1);
+}
+
+.upload-dragger.ant-upload-drag-hover .upload-text {
+  color: #1890ff;
+}
+
+/* 禁用状态 */
+.upload-dragger.ant-upload-disabled {
+  background: #f5f5f5 !important;
+  border-color: #d9d9d9 !important;
+  cursor: not-allowed !important;
+}
+
+.upload-dragger.ant-upload-disabled .upload-icon {
+  color: #bfbfbf;
+}
+
+.upload-dragger.ant-upload-disabled .upload-text {
+  color: #bfbfbf;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .upload-dragger {
+    padding: 16px !important;
+  }
+  
+  .upload-content {
+    padding: 16px 0;
+  }
+  
+  .upload-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+  
+  .file-info {
+    gap: 8px;
+  }
+  
+  .file-icon-wrapper {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .file-icon {
+    font-size: 16px;
+  }
+  
+  .file-name .ant-typography {
+    font-size: 13px !important;
+  }
+  
+  .preview-text {
+    font-size: 11px !important;
+  }
+}
+
+/* 动画效果 */
+@keyframes uploadPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.upload-dragger.ant-upload-drag-hover {
+  animation: uploadPulse 0.6s ease-in-out;
+}
+
+/* 文件类型标签颜色 */
+.ant-tag.file-type-text {
+  background: #f6ffed;
+  border-color: #b7eb8f;
+  color: #52c41a;
+}
+
+.ant-tag.file-type-document {
+  background: #fff2e8;
+  border-color: #ffbb96;
+  color: #fa541c;
+}
+
+.ant-tag.file-type-spreadsheet {
+  background: #e6fffb;
+  border-color: #87e8de;
+  color: #13c2c2;
+}
+
+.ant-tag.file-type-image {
+  background: #f9f0ff;
+  border-color: #d3adf7;
+  color: #722ed1;
+}
+
+.ant-tag.file-type-code {
+  background: #e6f7ff;
+  border-color: #91d5ff;
+  color: #1890ff;
+}

@@ -11,7 +11,9 @@ import {
   BulbOutlined,
   ToolOutlined,
   FileTextOutlined,
-  QuestionCircleOutlined
+  QuestionCircleOutlined,
+  ThunderboltOutlined,
+  ExperimentOutlined
 } from '@ant-design/icons'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import './Layout.css'
@@ -166,10 +168,10 @@ const AppLayout = () => {
         collapsedWidth={80}
       >
         <div className="logo">
-          <RobotOutlined className="logo-icon" />
-          {!collapsed && <Title level={4} className="logo-text">但问智能</Title>}
+          <ExperimentOutlined className="logo-icon" />
+          {!collapsed && <Title level={4} className="logo-text">Midas AI</Title>}
         </div>
-        
+
         <Menu
           theme="dark"
           mode="inline"

@@ -193,15 +193,89 @@ class ChatService:
             self.sessions[session_id] = AssistantAgent(
                 name="chat_assistant",
                 model_client=self.model_client,
-                system_message="你是一个智能助手，能够帮助用户解答各种问题。请用中文回答，回答要准确、有用且友好。",
+                system_message="""你是一个智能助手，能够帮助用户解答各种问题。
+                                
+                                你的特点：
+                                - 回答准确、有用且友好
+                                - 用中文回答
+                                - 能够处理各种类型的问题：日常咨询、技术问题、学习辅导、创意写作等
+                                - 如果用户上传了文件，会基于文件内容进行分析和回答
+                                - 保持对话的连贯性和上下文理解
+                                
+                                【重要规则 - 必须严格遵守】：
+                                当处理包含文件内容的请求时：
+                                1. 绝对禁止在回复中复制、粘贴或重复显示任何文件的原始内容
+                                2. 绝对禁止引用文件中的完整段落或大段文字
+                                3. 绝对禁止显示"文件内容："、"附件文件："等标识后跟随原始内容
+                                4. 只能基于文件内容进行分析、总结、回答，但不能展示原始文本
+                                5. 如需引用，只能使用简短的关键词或概念，不能引用完整句子
+                                
+                                正确做法：直接分析并回答用户问题，就像你已经阅读并理解了文件内容一样。
+                                
+                                请根据用户的具体需求提供最合适的帮助。""",
                 model_client_stream=True,  # 启用流式输出
             )
         return self.sessions[session_id]
+
+
     
+    def _should_use_test_team(self, message: str) -> bool:
+        """判断是否应该使用测试用例编写团队"""
+        message_lower = message.lower()
+
+        # 首先检查排除场景 - 如果是这些场景，绝对不使用测试团队
+        exclude_scenarios = [
+            "简历", "resume", "cv", "工作经历", "项目经验", "技能",
+            "分析", "总结", "评价", "建议", "优化", "改进", "评估",
+            "面试", "求职", "招聘", "职位", "岗位", "人才", "候选人",
+            "文档", "报告", "材料", "内容", "文件", "附件"
+        ]
+
+        # 如果包含排除关键词，直接返回False
+        if any(exclude in message_lower for exclude in exclude_scenarios):
+            return False
+
+        # 只有非常明确的测试用例设计请求才使用测试团队
+        explicit_test_design_patterns = [
+            # 明确的测试用例设计请求
+            "设计测试用例", "编写测试用例", "写测试用例", "制定测试用例",
+            "创建测试用例", "生成测试用例", "测试用例设计", "测试用例编写",
+
+            # 明确的测试计划/方案设计
+            "设计测试计划", "编写测试计划", "制定测试计划", "测试计划设计",
+            "设计测试方案", "编写测试方案", "制定测试方案", "测试方案设计",
+
+            # 英文版本
+            "design test case", "write test case", "create test case",
+            "test case design", "test plan design", "design test plan"
+        ]
+
+        # 检查是否包含明确的测试设计请求
+        for pattern in explicit_test_design_patterns:
+            if pattern in message_lower:
+                return True
+
+        # 检查动词+测试的组合，但要求更严格
+        design_verbs = ["帮我设计", "请设计", "如何设计", "帮我写", "请写", "如何写", "帮我制定", "请制定"]
+        test_objects = ["测试用例", "测试计划", "测试方案", "test case", "test plan"]
+
+        for verb in design_verbs:
+            for obj in test_objects:
+                if verb in message_lower and obj in message_lower:
+                    return True
+
+        return False
+
     async def chat_stream(self, message: str, session_id: str = "default") -> AsyncGenerator[str, None]:
         """流式聊天"""
-        # agent = self._get_or_create_agent(session_id)
-        agent = self._create_team(session_id)
+        # 根据消息内容智能选择使用单个智能体还是测试团队
+        if self._should_use_test_team(message):
+            agent = self._create_team(session_id)
+            use_team = True
+        else:
+            agent = self._get_or_create_agent(session_id)
+            use_team = False
+
         current_agent = None
         agent_content = ""
 
@@ -210,92 +284,107 @@ class ChatService:
             stream = agent.run_stream(task=message)
             async for item in stream:
                 if isinstance(item, ModelClientStreamingChunkEvent):
-                    # 检查是否切换了智能体
-                    if hasattr(item, 'source') and item.source != current_agent:
-                        # 如果之前有智能体在工作，先结束它
-                        if current_agent is not None:
+                    if use_team:
+                        # 团队模式：处理多智能体切换
+                        if hasattr(item, 'source') and item.source != current_agent:
+                            # 如果之前有智能体在工作，先结束它
+                            if current_agent is not None:
+                                yield json.dumps({
+                                    "type": "agent_end",
+                                    "agent": current_agent,
+                                    "content": agent_content.strip()
+                                }) + "\n"
+
+                            # 开始新的智能体
+                            current_agent = item.source if hasattr(item, 'source') else "primary"
+                            agent_content = ""
+
+                            # 发送智能体开始事件
+                            agent_data = self.agent_info.get(current_agent, {
+                                "name": current_agent,
+                                "description": f"{current_agent}智能体",
+                                "avatar": "🤖",
+                                "color": "#1890ff"
+                            })
+
                             yield json.dumps({
-                                "type": "agent_end",
+                                "type": "agent_start",
                                 "agent": current_agent,
-                                "content": agent_content.strip()
+                                "agent_info": agent_data,
+                                "content": ""
                             }) + "\n"
 
-                        # 开始新的智能体
-                        current_agent = item.source if hasattr(item, 'source') else "primary"
-                        agent_content = ""
-
-                        # 发送智能体开始事件
-                        agent_data = self.agent_info.get(current_agent, {
-                            "name": current_agent,
-                            "description": f"{current_agent}智能体",
-                            "avatar": "🤖",
-                            "color": "#1890ff"
-                        })
-
-                        yield json.dumps({
-                            "type": "agent_start",
-                            "agent": current_agent,
-                            "agent_info": agent_data,
-                            "content": ""
-                        }) + "\n"
-
-                    # 累积内容并流式输出
-                    if item.content:
-                        agent_content += item.content
-                        yield json.dumps({
-                            "type": "chunk",
-                            "agent": current_agent or "primary",
-                            "content": item.content
-                        }) + "\n"
+                        # 累积内容并流式输出
+                        if item.content:
+                            agent_content += item.content
+                            yield json.dumps({
+                                "type": "chunk",
+                                "agent": current_agent or "primary",
+                                "content": item.content
+                            }) + "\n"
+                    else:
+                        # 单智能体模式：直接输出内容
+                        if item.content:
+                            yield json.dumps({
+                                "type": "chunk",
+                                "content": item.content
+                            }) + "\n"
 
                 elif isinstance(item, TextMessage):
-                    # 处理完整消息，检查智能体切换
-                    message_source = item.source
-                    if message_source != current_agent:
-                        # 如果之前有智能体在工作，先结束它
-                        if current_agent is not None:
+                    if use_team:
+                        # 团队模式：处理完整消息，检查智能体切换
+                        message_source = item.source
+                        if message_source != current_agent:
+                            # 如果之前有智能体在工作，先结束它
+                            if current_agent is not None:
+                                yield json.dumps({
+                                    "type": "agent_end",
+                                    "agent": current_agent,
+                                    "content": agent_content.strip()
+                                }) + "\n"
+
+                            # 开始新的智能体
+                            current_agent = message_source
+                            agent_content = item.content
+
+                            # 发送智能体开始事件
+                            agent_data = self.agent_info.get(current_agent, {
+                                "name": current_agent,
+                                "description": f"{current_agent}智能体",
+                                "avatar": "🤖",
+                                "color": "#1890ff"
+                            })
+
                             yield json.dumps({
-                                "type": "agent_end",
+                                "type": "agent_start",
                                 "agent": current_agent,
-                                "content": agent_content.strip()
+                                "agent_info": agent_data,
+                                "content": ""
                             }) + "\n"
 
-                        # 开始新的智能体
-                        current_agent = message_source
-                        agent_content = item.content
-
-                        # 发送智能体开始事件
-                        agent_data = self.agent_info.get(current_agent, {
-                            "name": current_agent,
-                            "description": f"{current_agent}智能体",
-                            "avatar": "🤖",
-                            "color": "#1890ff"
-                        })
-
-                        yield json.dumps({
-                            "type": "agent_start",
-                            "agent": current_agent,
-                            "agent_info": agent_data,
-                            "content": ""
-                        }) + "\n"
-
-                        # 输出完整内容
-                        yield json.dumps({
-                            "type": "chunk",
-                            "agent": current_agent,
-                            "content": item.content
-                        }) + "\n"
+                            # 输出完整内容
+                            yield json.dumps({
+                                "type": "chunk",
+                                "agent": current_agent,
+                                "content": item.content
+                            }) + "\n"
+                        else:
+                            # 同一智能体的后续消息
+                            agent_content += item.content
+                            yield json.dumps({
+                                "type": "chunk",
+                                "agent": current_agent,
+                                "content": item.content
+                            }) + "\n"
                     else:
-                        # 同一智能体的后续消息
-                        agent_content += item.content
+                        # 单智能体模式：直接输出内容
                         yield json.dumps({
                             "type": "chunk",
-                            "agent": current_agent,
                             "content": item.content
                         }) + "\n"
 
-            # 结束最后一个智能体
-            if current_agent is not None:
+            # 结束最后一个智能体（仅在团队模式下）
+            if use_team and current_agent is not None:
                 yield json.dumps({
                     "type": "agent_end",
                     "agent": current_agent,
@@ -303,11 +392,13 @@ class ChatService:
                 }) + "\n"
 
         except Exception as e:
-            yield json.dumps({
+            error_data = {
                 "type": "error",
-                "content": f"抱歉，处理您的请求时出现了错误：{str(e)}",
-                "agent": current_agent or "system"
-            }) + "\n"
+                "content": f"抱歉，处理您的请求时出现了错误：{str(e)}"
+            }
+            if use_team:
+                error_data["agent"] = current_agent or "system"
+            yield json.dumps(error_data) + "\n"
     
     async def chat(self, message: str, session_id: str = "default") -> str:
         """非流式聊天"""
@@ -332,3 +423,44 @@ class ChatService:
     def get_session_count(self) -> int:
         """获取当前会话数量"""
         return len(self.sessions)
+
+    async def file_analysis_stream(self, user_question: str, file_content: str, session_id: str = "default") -> AsyncGenerator[str, None]:
+        """专门用于文件分析的流式聊天"""
+        # 为每次文件分析创建一个新的智能体，并在系统消息中包含文件内容
+        file_analysis_agent = AssistantAgent(
+            name="file_analysis_assistant",
+            model_client=self.model_client,
+            system_message=f"""你是一个专门的文件分析助手。
+
+用户上传了以下文件内容：
+{file_content}
+
+现在用户会向你提问关于这个文件的问题。请基于文件内容回答用户的问题，但绝对不要在回复中重复显示文件的原始内容。
+
+直接回答用户的问题即可。""",
+            model_client_stream=True,
+        )
+
+        # 直接使用用户问题
+        analysis_message = user_question
+
+        try:
+            # 使用 run_stream 方法获取流式响应
+            stream = file_analysis_agent.run_stream(task=analysis_message)
+            async for item in stream:
+                if isinstance(item, ModelClientStreamingChunkEvent):
+                    if item.content:
+                        yield json.dumps({
+                            "type": "chunk",
+                            "content": item.content
+                        }) + "\n"
+                elif isinstance(item, TextMessage):
+                    yield json.dumps({
+                        "type": "chunk",
+                        "content": item.content
+                    }) + "\n"
+        except Exception as e:
+            yield json.dumps({
+                "type": "error",
+                "content": f"抱歉，处理您的请求时出现了错误：{str(e)}"
+            }) + "\n"

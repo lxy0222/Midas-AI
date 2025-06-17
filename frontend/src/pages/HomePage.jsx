@@ -88,7 +88,7 @@ const HomePage = () => {
           </motion.div>
           
           <Title level={1} className="hero-title">
-            但问智能
+            Midas AI Assistant
           </Title>
           
           <Paragraph className="hero-description">
@@ -213,7 +213,7 @@ const HomePage = () => {
             准备好开始了吗？
           </Title>
           <Paragraph className="cta-description">
-            立即体验但问智能，让AI助力您的每一天
+            立即体验Midas AI，让AI助力您的每一天
           </Paragraph>
           <Button 
             type="primary" 

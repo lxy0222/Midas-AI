@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Typography, Button, Space, message, Input, Avatar, Switch, Tooltip } from 'antd'
+import { Typography, Button, Space, message, Input, Avatar, Switch, Tooltip, Collapse } from 'antd'
 import {
   SendOutlined,
   MoreOutlined,
@@ -8,15 +8,19 @@ import {
   RobotOutlined,
   UserOutlined,
   ExperimentOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  PaperClipOutlined,
+  FileTextOutlined
 } from '@ant-design/icons'
 import { motion, AnimatePresence } from 'framer-motion'
 import MessageRenderer from '../components/MessageRenderer'
 import AgentTimeline from '../components/AgentTimeline'
+import FileUpload from '../components/FileUpload'
 import './ChatPage.css'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
+const { Panel } = Collapse
 
 function ChatPageSimple() {
   const [messages, setMessages] = useState([])
@@ -26,6 +30,8 @@ function ChatPageSimple() {
   const [currentAgents, setCurrentAgents] = useState([])
   const [currentAgent, setCurrentAgent] = useState(null)
   const [useDemo, setUseDemo] = useState(false) // 是否使用演示模式
+  const [selectedFile, setSelectedFile] = useState(null) // 选中的文件
+  const [showFileUpload, setShowFileUpload] = useState(false) // 是否显示文件上传
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -46,13 +52,18 @@ function ChatPageSimple() {
       id: Date.now(),
       type: 'user',
       content: inputValue,
-      timestamp: new Date()
+      timestamp: new Date(),
+      file: selectedFile ? {
+        name: selectedFile.name,
+        type: selectedFile.type,
+        size: selectedFile.size
+      } : null
     }
 
     setMessages(prev => [...prev, userMessage])
     setInputValue('')
     setIsStreaming(true)
-    
+
     // 重置智能体状态
     setCurrentAgents([])
     setCurrentAgent(null)
@@ -70,17 +81,41 @@ function ChatPageSimple() {
     setMessages(prev => [...prev, assistantMessage])
 
     try {
-      const endpoint = useDemo ? '/api/chat/stream/demo' : '/api/chat/stream'
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage.content,
-          session_id: sessionId
-        })
-      })
+      let endpoint, requestOptions
+
+      if (selectedFile) {
+        // 有文件时，使用专门的文件分析端点
+        endpoint = '/api/chat/file-analysis/stream'
+
+        requestOptions = {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: userMessage.content,
+            session_id: sessionId,
+            file_name: selectedFile.name,
+            file_type: selectedFile.type,
+            file_content: selectedFile.content
+          })
+        }
+      } else {
+        // 没有文件时使用普通端点
+        endpoint = useDemo ? '/api/chat/stream/demo' : '/api/chat/stream'
+        requestOptions = {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: userMessage.content,
+            session_id: sessionId
+          })
+        }
+      }
+
+      const response = await fetch(endpoint, requestOptions)
 
       if (!response.ok) {
         throw new Error('网络请求失败')
@@ -157,7 +192,7 @@ function ChatPageSimple() {
                   
                 } else if (data.type === 'complete') {
                   console.log('All agents completed:', data.message)
-                  
+
                 } else if (data.type === 'error') {
                   message.error(data.content)
                   setMessages(prev => prev.map(msg =>
@@ -205,6 +240,9 @@ function ChatPageSimple() {
     } finally {
       setIsStreaming(false)
       setCurrentAgent(null)
+      // 清理文件状态
+      setSelectedFile(null)
+      setShowFileUpload(false)
     }
   }
 
@@ -217,11 +255,30 @@ function ChatPageSimple() {
       setMessages([])
       setCurrentAgents([])
       setCurrentAgent(null)
+      setSelectedFile(null)
+      setShowFileUpload(false)
       message.success('对话已清除')
     } catch (error) {
       console.error('清除对话失败:', error)
       message.error('清除对话失败')
     }
+  }
+
+  // 文件选择处理
+  const handleFileSelect = (fileInfo) => {
+    setSelectedFile(fileInfo)
+    message.success(`文件 ${fileInfo.name} 已选择`)
+  }
+
+  // 文件移除处理
+  const handleFileRemove = () => {
+    setSelectedFile(null)
+    setShowFileUpload(false)
+  }
+
+  // 切换文件上传面板
+  const toggleFileUpload = () => {
+    setShowFileUpload(!showFileUpload)
   }
 
   // 处理键盘事件
@@ -279,7 +336,7 @@ function ChatPageSimple() {
               >
                 <RobotOutlined className="welcome-icon" />
                 <Title level={4} className="gradient-text">
-                  欢迎使用但问智能
+                  欢迎使用Midas AI
                 </Title>
                 <Text className="welcome-text">
                   我是您的 AI 智能助手，有什么可以帮助您的吗？
@@ -306,6 +363,18 @@ function ChatPageSimple() {
                       </Text>
                     </div>
                     <div className="message-content">
+                      {/* 显示文件信息 */}
+                      {msg.file && (
+                        <div className="message-file-info">
+                          <Space>
+                            <FileTextOutlined style={{ color: '#1890ff' }} />
+                            <Text type="secondary">
+                              附件: {msg.file.name} ({(msg.file.size / 1024).toFixed(1)} KB)
+                            </Text>
+                          </Space>
+                        </div>
+                      )}
+
                       {msg.type === 'assistant' && msg.agents && msg.agents.length > 0 ? (
                         <AgentTimeline
                           agents={msg.agents}
@@ -328,13 +397,83 @@ function ChatPageSimple() {
         </div>
 
         <div className="input-container">
+          {/* 文件上传区域 */}
+          {showFileUpload && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="file-upload-section"
+            >
+              <Collapse
+                activeKey={showFileUpload ? ['1'] : []}
+                ghost
+                size="small"
+              >
+                <Panel
+                  header="上传文件"
+                  key="1"
+                  extra={
+                    <Button
+                      type="text"
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowFileUpload(false)
+                      }}
+                    >
+                      收起
+                    </Button>
+                  }
+                >
+                  <FileUpload
+                    onFileSelect={handleFileSelect}
+                    onFileRemove={handleFileRemove}
+                    disabled={isStreaming}
+                  />
+                </Panel>
+              </Collapse>
+            </motion.div>
+          )}
+
+          {/* 选中文件显示 */}
+          {selectedFile && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="selected-file-info"
+            >
+              <Space>
+                <FileTextOutlined style={{ color: '#1890ff' }} />
+                <Text>已选择: {selectedFile.name}</Text>
+                <Button
+                  type="text"
+                  size="small"
+                  onClick={handleFileRemove}
+                  disabled={isStreaming}
+                >
+                  移除
+                </Button>
+              </Space>
+            </motion.div>
+          )}
+
           <div className="input-wrapper">
+            <Button
+              type="text"
+              icon={<PaperClipOutlined />}
+              onClick={toggleFileUpload}
+              className="attach-button"
+              disabled={isStreaming}
+              title="上传文件"
+            />
             <TextArea
               ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="输入您的问题..."
+              placeholder={selectedFile ? "描述您想对文件进行的分析..." : "输入您的问题..."}
               className="chat-input"
               disabled={isStreaming}
               autoSize={{ minRows: 1, maxRows: 4 }}

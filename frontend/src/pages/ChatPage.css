@@ -246,3 +246,72 @@
     padding: 32px 16px;
   }
 }
+
+/* 文件上传相关样式 */
+.file-upload-section {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e8eaed;
+}
+
+.selected-file-info {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.message-file-info {
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: #f0f8ff;
+  border-left: 3px solid #1890ff;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.attach-button {
+  color: #1890ff !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 4px 8px !important;
+  height: auto !important;
+  min-width: auto !important;
+  border-radius: 8px !important;
+}
+
+.attach-button:hover {
+  background: #f0f8ff !important;
+  color: #0d7377 !important;
+}
+
+.attach-button:disabled {
+  color: #bfbfbf !important;
+  background: transparent !important;
+}
+
+/* 移动端文件上传样式 */
+@media (max-width: 768px) {
+  .file-upload-section {
+    margin-bottom: 12px;
+    padding: 8px;
+  }
+
+  .selected-file-info {
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .message-file-info {
+    font-size: 11px;
+  }
+
+  .attach-button {
+    padding: 2px 6px !important;
+  }
+}
