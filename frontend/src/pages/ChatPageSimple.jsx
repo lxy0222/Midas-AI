@@ -308,7 +308,15 @@ function ChatPageSimple() {
   // 选择历史对话
   const handleSessionSelect = (session) => {
     setSessionId(session.id)
-    setMessages(session.messages || [])
+
+    // 处理消息格式，确保timestamp是Date对象
+    const processedMessages = (session.messages || []).map(msg => ({
+      ...msg,
+      timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp || Date.now()),
+      id: msg.id || `msg_${Date.now()}_${Math.random()}`
+    }))
+
+    setMessages(processedMessages)
     setChatTitle(session.title)
     setCurrentAgents([])
     setCurrentAgent(null)
@@ -402,7 +410,10 @@ function ChatPageSimple() {
                         <RobotOutlined className="message-icon assistant" />
                       )}
                       <Text className="message-time">
-                        {msg.timestamp.toLocaleTimeString()}
+                        {msg.timestamp instanceof Date ?
+                          msg.timestamp.toLocaleTimeString() :
+                          new Date(msg.timestamp).toLocaleTimeString()
+                        }
                       </Text>
                     </div>
                     <div className="message-content">

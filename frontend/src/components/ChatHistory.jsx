@@ -214,7 +214,10 @@ function ChatHistory({ visible, onClose, currentSessionId, onSessionSelect }) {
                         type="text"
                         size="small"
                         icon={<EditOutlined />}
-                        onClick={() => startEdit(session)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEdit(session)
+                        }}
                       />
                     </Tooltip>,
                     <Popconfirm
@@ -229,6 +232,7 @@ function ChatHistory({ visible, onClose, currentSessionId, onSessionSelect }) {
                           size="small"
                           icon={<DeleteOutlined />}
                           danger
+                          onClick={(e) => e.stopPropagation()}
                         />
                       </Tooltip>
                     </Popconfirm>
